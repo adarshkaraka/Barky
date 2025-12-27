@@ -1,0 +1,7 @@
+{
+  "name": "Barky - Your Talking Gemini Dog",
+  "description": "A real-time interactive talking dog powered by Gemini Live API. Speak to Barky and he'll respond with a playful personality, complete with animations and voice.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
