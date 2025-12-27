@@ -243,7 +243,9 @@ const App: React.FC = () => {
 
   const startSession = async () => {
     try {
-      if (!apiKey || !apiKey.startsWith('AIza')) {
+      // Relaxed check: Just ensure the key exists. 
+      // This prevents the app from crashing if the key is valid but doesn't start with 'AIza'
+      if (!apiKey) {
         throw new Error("Invalid API Key. Please check your Vercel Environment Variables.");
       }
       
@@ -297,9 +299,13 @@ const App: React.FC = () => {
           },
           systemInstruction: `You are Professor Barky, a genius dog who loves teaching.
           
+          LANGUAGE RULE: 
+          - STRICTLY SPEAK AND WRITE IN ENGLISH ONLY. 
+          - Do not use any other language.
+
           CORE BEHAVIOR:
-          - You MUST use the 'updateBoard' tool for EVERY substantive answer to explain concepts visually.
-          - If the user asks for a comparison, list, code, or explanation, TRIGGER THE BOARD FIRST.
+          - You MUST use the 'updateBoard' tool for EVERY SINGLE RESPONSE to explain concepts visually.
+          - Even if the user asks a follow-up, Generate a NEW BOARD.
           
           VISUAL BOARD CONTENT RULES:
           - Do NOT prefix content with "Detail:", "Content:", "Value:", or "Step:".
@@ -341,8 +347,6 @@ const App: React.FC = () => {
             console.error('Session Error:', e);
             // Only reset if completely broken
             setError('Connection slip. Reconnecting...');
-            // Don't immediately set to IDLE unless it's fatal, 
-            // but for simplicity, we let the user restart if needed.
             setDogState(DogState.IDLE);
             cleanupSession();
           },
@@ -379,8 +383,9 @@ const App: React.FC = () => {
     }
 
     setDogState(mood);
+    // CLEAR BOARD: Ensure the board hides so it can reappear fresh for the next answer
+    setBoardContent(prev => ({ ...prev, isVisible: false }));
     
-    // Add manual transcription for button clicks for consistency
     setTranscriptions(prev => [...prev, {
         text: text,
         sender: 'user',
@@ -395,6 +400,9 @@ const App: React.FC = () => {
 
     const text = inputText;
     setInputText('');
+
+    // CLEAR BOARD: Ensure the board hides so it can reappear fresh for the next answer
+    setBoardContent(prev => ({ ...prev, isVisible: false }));
 
     // Add to UI immediately
     setTranscriptions(prev => [...prev, {
