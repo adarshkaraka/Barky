@@ -188,13 +188,18 @@ const App: React.FC = () => {
     
     if (serverContent?.inputTranscription?.text) {
        const text = serverContent.inputTranscription.text;
-       setTranscriptions(prev => {
-         const last = prev[prev.length - 1];
-         if (last && last.sender === 'user') {
-           return [...prev.slice(0, -1), { ...last, text: last.text + text }];
-         }
-         return [...prev, { text, sender: 'user', timestamp: Date.now() }];
-       });
+       
+       // Strict English Enforcement for Log: 
+       // Filter out text containing Hindi characters (Unicode block 0900-097F)
+       if (!/[\u0900-\u097F]/.test(text)) {
+           setTranscriptions(prev => {
+             const last = prev[prev.length - 1];
+             if (last && last.sender === 'user') {
+               return [...prev.slice(0, -1), { ...last, text: last.text + text }];
+             }
+             return [...prev, { text, sender: 'user', timestamp: Date.now() }];
+           });
+       }
     }
 
     // 3. Audio Output
@@ -243,8 +248,6 @@ const App: React.FC = () => {
 
   const startSession = async () => {
     try {
-      // Relaxed check: Just ensure the key exists. 
-      // This prevents the app from crashing if the key is valid but doesn't start with 'AIza'
       if (!apiKey) {
         throw new Error("Invalid API Key. Please check your Vercel Environment Variables.");
       }
@@ -297,15 +300,21 @@ const App: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }
           },
+          // FORCE ENGLISH TRANSCRIPTION
+          inputAudioTranscription: {
+            languageCode: "en-US"
+          },
+          outputAudioTranscription: {},
           systemInstruction: `You are Professor Barky, a genius dog who loves teaching.
           
-          LANGUAGE RULE: 
-          - STRICTLY SPEAK AND WRITE IN ENGLISH ONLY. 
-          - Do not use any other language.
+          LANGUAGE COMPLIANCE:
+          - You must ONLY output English text.
+          - If the user speaks another language, reply in English and ask them to speak English.
+          - Never generate non-English script.
 
           CORE BEHAVIOR:
           - You MUST use the 'updateBoard' tool for EVERY SINGLE RESPONSE to explain concepts visually.
-          - Even if the user asks a follow-up, Generate a NEW BOARD.
+          - The user CANNOT see the previous board. You MUST Generate a NEW BOARD for every turn.
           
           VISUAL BOARD CONTENT RULES:
           - Do NOT prefix content with "Detail:", "Content:", "Value:", or "Step:".
@@ -317,9 +326,7 @@ const App: React.FC = () => {
           - Use Google Search for news/facts.
           
           INTERACTION:
-          - Speak clearly but concisely. Let the board show the details.`,
-          inputAudioTranscription: {}, 
-          outputAudioTranscription: {} 
+          - Speak clearly but concisely. Let the board show the details.`
         },
         callbacks: {
           onopen: () => {
