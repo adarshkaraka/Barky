@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BoardContent } from '../types';
 
@@ -15,12 +14,12 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
   
   // ROBUST DATA ACCESSORS
   // Handle cases where model returns plain strings, numbers, or different property keys
-  const getItemDetail = (item: any): string => {
+  const getItemContent = (item: any): string => {
     if (item === null || item === undefined) return '';
     if (typeof item === 'string') return item;
     if (typeof item === 'number') return String(item);
-    // Check common property names the model might hallucinate
-    return item.detail || item.text || item.content || item.value || item.description || item.message || '';
+    // Prioritize 'content', fall back to others
+    return item.content || item.detail || item.text || item.value || item.description || '';
   };
 
   const getItemHeading = (item: any): string => {
@@ -32,14 +31,14 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
     switch (content.visualType) {
       case 'bar_chart':
         // Calculate max value for scaling
-        const values = items.map(i => parseFloat(getItemDetail(i)) || 0);
+        const values = items.map(i => parseFloat(getItemContent(i)) || 0);
         const maxVal = Math.max(...values, 1);
         
         return (
           <div className="flex flex-col h-64 justify-end gap-2 px-4 pt-8">
             <div className="flex items-end justify-around h-full gap-2 border-b-2 border-white/50 pb-2">
               {items.map((item, idx) => {
-                const val = parseFloat(getItemDetail(item)) || 0;
+                const val = parseFloat(getItemContent(item)) || 0;
                 const height = Math.max((val / maxVal) * 100, 5); // min height 5%
                 const chalkColor = idx % 2 === 0 ? 'bg-yellow-100' : 'bg-blue-200';
                 return (
@@ -72,7 +71,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
                 </div>
                 <div>
                   {getItemHeading(item) && <div className="font-bold text-yellow-200 text-sm mb-1">{getItemHeading(item)}</div>}
-                  <div className="text-white text-sm leading-relaxed font-medium">{getItemDetail(item)}</div>
+                  <div className="text-white text-sm leading-relaxed font-medium">{getItemContent(item)}</div>
                 </div>
               </div>
             ))}
@@ -88,7 +87,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
                   {getItemHeading(item) || `Option ${idx + 1}`}
                 </div>
                 <div className="text-sm text-white flex-1 flex items-center justify-center text-center p-2 font-medium">
-                  {getItemDetail(item)}
+                  {getItemContent(item)}
                 </div>
               </div>
             ))}
@@ -96,7 +95,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
         );
 
       case 'code_snippet':
-        const codeContent = getItemDetail(items[0]) || JSON.stringify(items, null, 2);
+        const codeContent = getItemContent(items[0]) || JSON.stringify(items, null, 2);
         return (
           <div className="bg-black/40 rounded-lg p-4 font-mono text-xs md:text-sm text-green-300 overflow-x-auto border border-white/10 shadow-inner">
             <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-2 text-white text-xs uppercase font-bold">
@@ -114,7 +113,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
         return (
           <div className="flex flex-col items-center justify-center h-full text-center p-4 border-2 border-dashed border-white/30 rounded-xl bg-white/5">
             <div className="text-6xl mb-4 animate-bounce">💡</div>
-            <div className="text-lg font-bold text-yellow-100 leading-snug drop-shadow-md">{getItemDetail(items[0])}</div>
+            <div className="text-lg font-bold text-yellow-100 leading-snug drop-shadow-md">{getItemContent(items[0])}</div>
           </div>
         );
 
@@ -127,7 +126,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
                 <span className="text-yellow-300 mt-1 text-xl leading-none flex-shrink-0">•</span>
                 <span className="text-sm md:text-base leading-relaxed text-white font-medium">
                   {getItemHeading(item) && <strong className="text-yellow-100 block mb-1 text-sm">{getItemHeading(item)}</strong>}
-                  {getItemDetail(item)}
+                  {getItemContent(item)}
                 </span>
               </li>
             ))}
@@ -151,7 +150,7 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
         
         {/* Wood Frame */}
         <div className="bg-[#8B4513] p-3 rounded-lg shadow-2xl transform rotate-1 border-b-4 border-[#5D2906]">
-          {/* Chalkboard Surface - Added text-white explicitly to parent */}
+          {/* Chalkboard Surface */}
           <div className="bg-[#2F4F4F] border-2 border-[#1a2e2e] p-6 rounded min-h-[200px] flex flex-col relative shadow-inner text-white">
             
             {/* Dust texture overlay (subtle) */}

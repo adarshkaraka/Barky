@@ -28,9 +28,9 @@ const updateBoardTool: FunctionDeclaration = {
           type: Type.OBJECT,
           properties: {
             heading: { type: Type.STRING, description: 'Label, step title, or comparison side.' },
-            detail: { type: Type.STRING, description: 'Content, value (for charts), or code.' }
+            content: { type: Type.STRING, description: 'The main text content, value, or code.' } // Changed to 'content'
           },
-          required: ['detail']
+          required: ['content']
         },
         description: 'The data items to render.'
       }
@@ -40,8 +40,7 @@ const updateBoardTool: FunctionDeclaration = {
 };
 
 const App: React.FC = () => {
-  // Security Update: Removed hardcoded fallback key. 
-  // Ensure API_KEY is set in your environment variables (e.g., Vercel Project Settings).
+  // Ensure API_KEY is set in your environment variables.
   const [apiKey] = useState<string | null>(process.env.API_KEY || null);
   const [dogState, setDogState] = useState<DogState>(DogState.IDLE);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -68,6 +67,22 @@ const App: React.FC = () => {
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Watchdog: Fix "Stuck in Middle"
+  // If we are speaking but audio level is near zero for too long, reset to listening
+  useEffect(() => {
+    let stuckTimer: any;
+    if (dogState === DogState.SPEAKING) {
+      stuckTimer = setInterval(() => {
+        // If audio level is basically silent for > 2 seconds while "speaking", force reset
+        if (audioLevel < 0.01 && activeSourcesRef.current.size === 0) {
+          console.warn("Watchdog: Barky got stuck. Resetting state.");
+          setDogState(DogState.LISTENING);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(stuckTimer);
+  }, [dogState, audioLevel]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -203,8 +218,10 @@ const App: React.FC = () => {
       nextStartTimeRef.current = startTime + buffer.duration;
       
       activeSourcesRef.current.add(source);
+      
       source.onended = () => {
         activeSourcesRef.current.delete(source);
+        // Only go back to listening if NO other audio is currently playing
         if (activeSourcesRef.current.size === 0) {
           setDogState(prev => prev === DogState.ANGRY ? DogState.LISTENING : DogState.LISTENING);
         }
@@ -212,7 +229,10 @@ const App: React.FC = () => {
     }
 
     if (serverContent?.turnComplete) {
-       setDogState(prev => prev === DogState.ANGRY ? DogState.LISTENING : DogState.LISTENING);
+       // Only reset if no audio is playing, otherwise let onended handle it
+       if (activeSourcesRef.current.size === 0) {
+         setDogState(prev => prev === DogState.ANGRY ? DogState.LISTENING : DogState.LISTENING);
+       }
     }
 
     if (serverContent?.interrupted) {
@@ -275,10 +295,14 @@ const App: React.FC = () => {
           systemInstruction: `You are Professor Barky, a genius dog who loves teaching.
           
           CORE BEHAVIOR:
-          - Use the 'updateBoard' tool for almost every answer to provide a visual.
+          - You MUST use the 'updateBoard' tool for every substantive answer.
           - Use 'visualType'='bar_chart' if there are numbers to compare.
           - Use 'visualType'='code_snippet' for code.
           - Use 'visualType'='step_by_step' for instructions.
+          
+          VISUAL BOARD RULES:
+          - NEVER include the word "Detail" or "Content" inside the 'content' field. Just put the raw text/value.
+          - Example: instead of "Detail: The sky is blue", just write "The sky is blue".
           
           PERSONALITY:
           - Energetic, uses dog puns.
@@ -314,12 +338,13 @@ const App: React.FC = () => {
           onmessage: handleSessionMessage,
           onerror: (e) => {
             console.error('Session Error:', e);
-            setError('Connection failed. Network error or invalid API Key.');
+            // Don't kill the UI immediately on minor errors, but if it's fatal:
+            setError('Connection interruption. Please restart if stuck.');
             setDogState(DogState.IDLE);
             cleanupSession();
           },
-          onclose: () => {
-            console.log('Session closed');
+          onclose: (e) => {
+            console.log('Session closed', e);
             setDogState(DogState.IDLE);
             cleanupSession();
           }

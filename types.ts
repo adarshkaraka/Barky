@@ -20,11 +20,12 @@ export interface TranscriptionEntry {
   webSources?: WebSource[];
 }
 
+// Fixed: Replaced commas with pipe operators for union type
 export type BoardVisualType = 'bullet_list' | 'step_by_step' | 'comparison' | 'code_snippet' | 'summary_card' | 'bar_chart';
 
 export interface BoardItem {
   heading?: string;
-  detail: string;
+  content: string; // Changed from 'detail' to 'content'
 }
 
 export interface BoardContent {
