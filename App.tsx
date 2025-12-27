@@ -300,10 +300,8 @@ const App: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }
           },
-          // FORCE ENGLISH TRANSCRIPTION
-          inputAudioTranscription: {
-            languageCode: "en-US"
-          },
+          // Fixed: Removed explicit languageCode which was causing connection issues
+          inputAudioTranscription: {},
           outputAudioTranscription: {},
           systemInstruction: `You are Professor Barky, a genius dog who loves teaching.
           
