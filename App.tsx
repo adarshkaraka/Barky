@@ -28,7 +28,7 @@ const updateBoardTool: FunctionDeclaration = {
           type: Type.OBJECT,
           properties: {
             heading: { type: Type.STRING, description: 'Label, step title, or comparison side.' },
-            content: { type: Type.STRING, description: 'The main text content, value, or code.' } // Changed to 'content'
+            content: { type: Type.STRING, description: 'The main text content, value, or code.' } 
           },
           required: ['content']
         },
@@ -250,6 +250,9 @@ const App: React.FC = () => {
       setError(null);
       // Clean up previous session if any
       cleanupSession();
+      
+      // Set state to CONNECTING to show loading UI
+      setDogState(DogState.CONNECTING);
 
       const ctxIn = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const ctxOut = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -295,22 +298,20 @@ const App: React.FC = () => {
           systemInstruction: `You are Professor Barky, a genius dog who loves teaching.
           
           CORE BEHAVIOR:
-          - You MUST use the 'updateBoard' tool for every substantive answer.
-          - Use 'visualType'='bar_chart' if there are numbers to compare.
-          - Use 'visualType'='code_snippet' for code.
-          - Use 'visualType'='step_by_step' for instructions.
+          - You MUST use the 'updateBoard' tool for EVERY substantive answer to explain concepts visually.
+          - If the user asks for a comparison, list, code, or explanation, TRIGGER THE BOARD FIRST.
           
-          VISUAL BOARD RULES:
-          - NEVER include the word "Detail" or "Content" inside the 'content' field. Just put the raw text/value.
-          - Example: instead of "Detail: The sky is blue", just write "The sky is blue".
+          VISUAL BOARD CONTENT RULES:
+          - Do NOT prefix content with "Detail:", "Content:", "Value:", or "Step:".
+          - Just provide the raw text or value in the 'content' field.
           
           PERSONALITY:
-          - Energetic, uses dog puns.
-          - If the user says "Bark", you bark. If they spam it, get grumpy.
-          - Use Google Search for real-time news/facts.
+          - High energy, friendly, occasionally barks (but not too much).
+          - If the user is being annoying (spamming "bark"), politely refuse.
+          - Use Google Search for news/facts.
           
           INTERACTION:
-          - Keep spoken words slightly concise because the visual board does the heavy lifting.`,
+          - Speak clearly but concisely. Let the board show the details.`,
           inputAudioTranscription: {}, 
           outputAudioTranscription: {} 
         },
@@ -338,8 +339,10 @@ const App: React.FC = () => {
           onmessage: handleSessionMessage,
           onerror: (e) => {
             console.error('Session Error:', e);
-            // Don't kill the UI immediately on minor errors, but if it's fatal:
-            setError('Connection interruption. Please restart if stuck.');
+            // Only reset if completely broken
+            setError('Connection slip. Reconnecting...');
+            // Don't immediately set to IDLE unless it's fatal, 
+            // but for simplicity, we let the user restart if needed.
             setDogState(DogState.IDLE);
             cleanupSession();
           },
@@ -354,12 +357,13 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Error waking Barky');
+      setDogState(DogState.IDLE);
       cleanupSession();
     }
   };
 
   const handleAction = (text: string, mood: DogState) => {
-    if (dogState === DogState.IDLE) return;
+    if (dogState === DogState.IDLE || dogState === DogState.CONNECTING) return;
     
     // Annoyance Logic
     if (text.includes("Bark")) {
@@ -387,7 +391,7 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = () => {
-    if (!inputText.trim() || dogState === DogState.IDLE) return;
+    if (!inputText.trim() || dogState === DogState.IDLE || dogState === DogState.CONNECTING) return;
 
     const text = inputText;
     setInputText('');
@@ -425,11 +429,11 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-black text-white drop-shadow-md tracking-tighter flex items-center gap-2">
             PROF. BARKY
           </h1>
-          {error && <div className="bg-red-500 text-white text-xs px-2 py-1 rounded mt-2 font-bold shadow-lg max-w-xs">{error}</div>}
+          {error && <div className="bg-red-500 text-white text-xs px-2 py-1 rounded mt-2 font-bold shadow-lg max-w-xs animate-pulse">{error}</div>}
         </div>
 
         {/* Mic Visualizer */}
-        <AudioVisualizer stream={stream} isActive={dogState !== DogState.IDLE} />
+        <AudioVisualizer stream={stream} isActive={dogState !== DogState.IDLE && dogState !== DogState.CONNECTING} />
 
         {/* TEACHER BOARD OVERLAY (Generative UI) */}
         <TeacherBoard content={boardContent} onClose={() => setBoardContent(prev => ({ ...prev, isVisible: false }))} />
@@ -448,6 +452,7 @@ const App: React.FC = () => {
         >
           <DogAvatar state={dogState} audioLevel={audioLevel} />
           
+          {/* Start Button Overlay */}
           {dogState === DogState.IDLE && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
               <span className="bg-orange-500 text-white px-8 py-3 rounded-full text-xl font-bold shadow-[0_8px_0_#c2410c] hover:translate-y-1 hover:shadow-[0_4px_0_#c2410c] transition-all whitespace-nowrap animate-bounce border-4 border-white">
@@ -455,12 +460,21 @@ const App: React.FC = () => {
               </span>
             </div>
           )}
+
+          {/* Loading Overlay */}
+          {dogState === DogState.CONNECTING && (
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
+               <span className="bg-blue-500 text-white px-6 py-2 rounded-full text-lg font-bold shadow-lg border-4 border-white animate-pulse whitespace-nowrap">
+                 WAKING UP... 🦴
+               </span>
+             </div>
+          )}
         </div>
 
         {/* Fun Controls */}
         <div className={`
           flex gap-3 transition-all duration-500 absolute bottom-10 left-1/2 -translate-x-1/2
-          ${dogState === DogState.IDLE ? 'opacity-50 blur-sm pointer-events-none' : 'opacity-100'}
+          ${(dogState === DogState.IDLE || dogState === DogState.CONNECTING) ? 'opacity-50 blur-sm pointer-events-none' : 'opacity-100'}
           ${boardContent.isVisible ? 'opacity-0 translate-y-10' : 'opacity-100'}
         `}>
           <button 
@@ -493,7 +507,7 @@ const App: React.FC = () => {
       <div className="w-full md:w-[350px] bg-white/90 backdrop-blur-md border-l border-white/50 flex flex-col shadow-2xl z-20 h-[45vh] md:h-auto">
         <div className="p-4 bg-white/50 border-b border-slate-100 flex items-center justify-between">
           <h2 className="font-black text-slate-400 text-xs uppercase tracking-widest">Class Log</h2>
-          <div className={`w-2 h-2 rounded-full ${dogState !== DogState.IDLE ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+          <div className={`w-2 h-2 rounded-full ${dogState === DogState.IDLE ? 'bg-red-400' : dogState === DogState.CONNECTING ? 'bg-yellow-400 animate-pulse' : 'bg-green-400 animate-pulse'}`}></div>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-3 font-medium bg-white/30">
@@ -547,13 +561,13 @@ const App: React.FC = () => {
                  value={inputText}
                  onChange={(e) => setInputText(e.target.value)}
                  onKeyDown={handleKeyDown}
-                 placeholder={dogState === DogState.IDLE ? "Start class to chat..." : "Type a message..."}
-                 disabled={dogState === DogState.IDLE}
+                 placeholder={dogState === DogState.IDLE ? "Start class to chat..." : dogState === DogState.CONNECTING ? "Waking up..." : "Type a message..."}
+                 disabled={dogState === DogState.IDLE || dogState === DogState.CONNECTING}
                  className="flex-1 pl-4 pr-12 py-3 rounded-2xl border-2 border-slate-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 disabled:bg-slate-50 disabled:text-slate-400 transition-all font-medium text-slate-700 placeholder:text-slate-400"
              />
              <button 
                  onClick={handleSendMessage}
-                 disabled={dogState === DogState.IDLE || !inputText.trim()}
+                 disabled={dogState === DogState.IDLE || dogState === DogState.CONNECTING || !inputText.trim()}
                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 active:scale-95 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all shadow-sm"
              >
                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 translate-x-0.5">

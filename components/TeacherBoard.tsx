@@ -12,19 +12,27 @@ const TeacherBoard: React.FC<TeacherBoardProps> = ({ content, onClose }) => {
   // Defensive check for items
   const items = Array.isArray(content.items) ? content.items : [];
   
-  // ROBUST DATA ACCESSORS
-  // Handle cases where model returns plain strings, numbers, or different property keys
+  // SANITIZER AND DATA ACCESSOR
+  const cleanContent = (text: string): string => {
+    if (!text) return '';
+    // Removes "Detail:", "Content:", "Value:", "Description:" case-insensitive, with or without spaces/colons
+    return text.replace(/^(detail|content|value|description|step)(\s*:)?\s*/i, '');
+  };
+
   const getItemContent = (item: any): string => {
     if (item === null || item === undefined) return '';
-    if (typeof item === 'string') return item;
+    if (typeof item === 'string') return cleanContent(item);
     if (typeof item === 'number') return String(item);
+    
     // Prioritize 'content', fall back to others
-    return item.content || item.detail || item.text || item.value || item.description || '';
+    const raw = item.content || item.detail || item.text || item.value || item.description || '';
+    return cleanContent(raw);
   };
 
   const getItemHeading = (item: any): string => {
     if (typeof item === 'string' || typeof item === 'number' || !item) return '';
-    return item.heading || item.title || item.label || item.key || item.name || '';
+    const raw = item.heading || item.title || item.label || item.key || item.name || '';
+    return cleanContent(raw);
   };
 
   const renderContent = () => {

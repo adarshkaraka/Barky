@@ -1,6 +1,7 @@
 
 export enum DogState {
   IDLE = 'IDLE',
+  CONNECTING = 'CONNECTING', // New state
   LISTENING = 'LISTENING',
   THINKING = 'THINKING',
   SPEAKING = 'SPEAKING',
